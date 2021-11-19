@@ -7,6 +7,8 @@ Gotchas and warts in Rust Lang (IMHO).
   * This makes creating higher-ranked closures arduous
   * So much so that many think it's impossible to make closures that are generic over liftimes
   * Outlook: Aparently backwards incompatible to change?  Not sure why though. Could be largely fixed with some new syntax, e.g. the ability to ascribe an `impl Fn(&Foo)` type.
+    * [`impl Trait` bindings could help](https://github.com/rust-lang/rust/issues/63065) but are currently dis-implemented
+    * [Generalized type ascription](https://github.com/rust-lang/rfcs/pull/2522) would have helped but has been postponed.
 * Struct lifetime parameter elision
   * By which I mean eliding the parameter altogether.  [Most seem to agree this is non-obvious and bad style.](https://blog.rust-lang.org/2017/03/02/lang-ergonomics.html#example-type-annotations)
   * Part of [RFC 0141](https://rust-lang.github.io/rfcs/0141-lifetime-elision.html)
@@ -18,6 +20,7 @@ Gotchas and warts in Rust Lang (IMHO).
   * [RFC 0599](https://rust-lang.github.io/rfcs/0599-default-object-bound.html), [RFC 1156](https://rust-lang.github.io/rfcs/1156-adjust-default-object-bounds.html), [RFC 1214](https://rust-lang.github.io/rfcs/1214-projections-lifetimes-and-wf.html)
   * More of a gotcha than a wart; not a problem if your lifetime of applicability is `'static`
   * The elision rules are rather special-cased
+    * Especially when interacting with `'_` wildcard elision
   * The elision rules sometimes choose the wrong lifetime
   * The elision rules naturally do not penetrate aliases... including `Self` or associated types
   * [In generic struct declarations](https://rust-lang.github.io/rfcs/2093-infer-outlives.html#trait-object-lifetime-defaults) it's based on the underlying type constraints
@@ -35,8 +38,9 @@ Gotchas and warts in Rust Lang (IMHO).
   * Some love it, some hate it.  Distinguishing from RPIT is definitely a stumbling block to beginners
   * Part of [RFC 1951](https://rust-lang.github.io/rfcs/1951-expand-impl-trait.html)
   * Outlook: Divisive but stable and unlikely to change
+    * It may even [gain semantic meaning as a late-bound type construct](https://rust-lang.github.io/impl-trait-initiative/RFCs/named-function-types.html)
 * [`impl Trait` "leaks" auto-traits](https://rust-lang.github.io/rfcs/1522-conservative-impl-trait.html#semantics)
-  * Probably only a gotcha in that it's easy to break backwards compatibility
+  * Probably only a gotcha in that it's easy to break backwards compatibility (so far)
   * Outlook: Stable, by design, and probably can't change
 * The "captures" gotcha
   * [Described here](https://github.com/rust-lang/rust/issues/34511#issuecomment-373423999) and [explored here](https://users.rust-lang.org/t/lifetimes-in-smol-executor/59157/8?u=yandros)
@@ -44,6 +48,8 @@ Gotchas and warts in Rust Lang (IMHO).
   * Outlook: Something like `dyn Trait`'s lifetime intersection [is desired]( https://github.com/rust-lang/rust/pull/57870#issuecomment-459116559) but has not yet materialized.  Rust teams unwilling to stabilize a work-around in the meanwhile.
 
 ## `dyn Trait`
+* You can't `Unsize` a dynamically sized type, so you can't make a `dyn Trait` out of a `[T]`, `str`, etc.
+  * Indirection (`Box<str>`, `&String`, ...) is sometimes an option instead
 * [Lifetime variance and unsized coercion interaction](https://users.rust-lang.org/t/solved-variance-of-dyn-trait-a/39733)
   * The lifetime is covariant and that covariance applies _during unsized coercion,_ which can bypass otherwise invariant contexts such as inside an `UnsafeCell`
   * Surprising but I'm not sure if it's even a gotcha to be honest.  Obscure.  
@@ -53,8 +59,11 @@ Gotchas and warts in Rust Lang (IMHO).
   * Leads to situation where the only implementation for unsized types are default function bodies (need to re-find the citation for this situation)
   * Seems to be special-cased in the compiler (citation needed)
   * Outlook: Used endemically but a replacement should be possible
+    * Technically possible after [RFC 2580](https://rust-lang.github.io/rfcs/2580-ptr-meta.html) ladnds
 * [Inherent methods "are" the trait implementation](https://github.com/rust-lang/rust/issues/51402)
-  * Striving too hard for `dyn Trait` "is" the trait vs. the reality: `dyn Trait` is a distinct, concrete type
+  * Striving too hard for `dyn Trait` "is" the trait vs. the reality: `dyn Trait` is a distinct, concrete type?
+    * No, apparently it was due to [partial (compiler) implementations](http://smallcultfollowing.com/babysteps//blog/2021/10/01/dyn-async-traits-part-2/#partial-dyn-impls)
+    * I still feel inherent impls should be inherent impls and trait impls, trait impls.
   * Related: The [belief/desire](https://github.com/rust-lang/rust/issues/88904) for it to be impossible to make a `dyn Trait` that doesn't implement `Trait`
     * See also [RFC 2027](https://rust-lang.github.io/rfcs/2027-object_safe_for_dispatch.html)
   * Outlook: Stable, but could probably just be allowed?
@@ -67,7 +76,7 @@ Gotchas and warts in Rust Lang (IMHO).
   * Outlook: Could be brought back but not on the horizon
 * GATs are invariant
   * Leads to somewhat painful variance-like implementations or helper methods
-  * Outlook: GATs are stable yet.  Otherwise, same as for traits?
+  * Outlook: GATs are not stable yet.  Close though.  Otherwise, same as for traits?
 
 ## Default type paramaters
 * Default type parameters are just generally a half baked feature
@@ -95,6 +104,16 @@ Gotchas and warts in Rust Lang (IMHO).
 * [NLL problem case #3](https://github.com/rust-lang/rust/issues/51545)
   * Outlook: Waiting on Polonius
 
+## Type aliases / Associated Types
+* Plain and generic type aliases lack the rigor of associated types and TAIT
+  * [Trait bounds are not enforced](https://github.com/rust-lang/rust/issues/21903), nor lifetime bounds
+  * [See also](https://github.com/rust-lang/rust/issues/55222)
+  * Outlook: [See here,](https://github.com/rust-lang/lang-team/blob/master/design-meeting-minutes/2020-07-29-wf-checks-and-ty-aliases.md) presumably something that will be improved as TAIT comes to be?  I hope so anyway.
+* There's no way to specify which trait an associated type came from in `Trait<Assoc = Type>` form (the `Assoc` can *only* be an identifier)
+  * [As discussed here](https://github.com/rust-lang/rust/issues/48285)
+  * This can be problematic as `dyn Trait<Assoc=X, Assoc=Y>` cannot compile
+  * Outlook: Rare problem, work-around possible, low priority
+
 ## Misc
 * Fallback integer is `i32` but fallback float is `f64`
   * Outlook: Permenant
@@ -107,8 +126,9 @@ Gotchas and warts in Rust Lang (IMHO).
   * There is no replacement other than the `bstr` crate for `[u8]`
   * [RFC 2295](https://github.com/rust-lang/rust/issues/49802) may help with `OsString`
   * Outlook: could be revamped but momentum is lacking
-* Closures capture entire variables, not fields
-  * Outlook: [RFC 2229](https://rust-lang.github.io/rfcs/2229-capture-disjoint-fields.html) will stabilize in edition 2021
+* ~~Closures capture entire variables, not fields~~
+  * ~~Outlook: [RFC 2229](https://rust-lang.github.io/rfcs/2229-capture-disjoint-fields.html) will stabilize in edition 2021~~
+  * Is stable 🚀
 * :sparkles: Self referential structs :sparkles:
 
 ## Mostly just lacking in documentation
@@ -118,6 +138,6 @@ Gotchas and warts in Rust Lang (IMHO).
 * `&mut -> &` function semantics
   * I.e. [the returned borrow is still exclusive](http://smallcultfollowing.com/babysteps/blog/2018/11/10/after-nll-moving-from-borrowed-data-and-the-sentinel-pattern/#permissions-in-permissions-out)
 * How functions capture more generally (e.g. complicated borrowing parameters)
-  * By which I mean, returning something borrowed extends all input borrows
+  * By which I mean, returning something borrowed extends all (applicable?) input borrows
 * How the `.` operator works
   * Including field accesses, not just method resolution
