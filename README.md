@@ -28,10 +28,12 @@ Gotchas and warts in Rust Lang (IMHO).
     * Probably too obscure to really be a snag people actually hit
   * Outlook: Stable and probably not changeable
 * "In-band" lifetimes
-  * I.e. just using a named lifetime declares it (if not already declared)
-  * Part of [RFC 2115](https://rust-lang.github.io/rfcs/2115-argument-lifetimes.html)
-  * Optimizes for writing, pessimizes reading, foot-gun
-  * Outlook: Approved but not yet stable.  Divisive?
+  * Seems to be off the table for now.  Whew!
+  * Outlook: ["Retired"](https://github.com/rust-lang/rust/issues/44524#issuecomment-988260463) but may be revisited
+  * Previous notes:
+    * I.e. just using a named lifetime declares it (if not already declared)
+    * Part of [RFC 2115](https://rust-lang.github.io/rfcs/2115-argument-lifetimes.html)
+    * Optimizes for writing, pessimizes reading, foot-gun
 
 ## `impl Trait`
 * Argument Position `impl Trait` (APIT)
@@ -115,8 +117,16 @@ Gotchas and warts in Rust Lang (IMHO).
   * Outlook: Rare problem, work-around possible, low priority
 
 ## Misc
+* Match ergonomics / match binding modes
+  * [Is broken](https://github.com/rust-lang/rust/issues/64586)
+  * (other complaints to be expanded later)
 * Fallback integer is `i32` but fallback float is `f64`
   * Outlook: Permenant
+* Eliding parameter names is...
+  * Mandatory in `Fn(u32)` and the like
+  * Optional in `fn(u32)`/`fn(x: u32)` and the like
+  * Not possible ([in edition 2018+](https://github.com/rust-lang/rust/issues/41686)) in `fn foo(x: u32)` and the like
+    * Do note these are patterns, not identifiers
 * [Partial implementations](https://github.com/rust-lang/rust/issues/31844) as implemented on nightly (part of Specialization)
   * Recycles the name `default` for `default impl` because this is "less confusing" than calling them `partial impl`
   * Makes `default` implicit on the implementations within
