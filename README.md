@@ -121,7 +121,7 @@ Gotchas and warts in Rust Lang (IMHO).
   * [Is broken](https://github.com/rust-lang/rust/issues/64586)
   * (other complaints to be expanded later)
 * Fallback integer is `i32` but fallback float is `f64`
-  * Outlook: Permenant
+  * Outlook: Permanent
 * Eliding parameter names is...
   * Mandatory in `Fn(u32)` and the like
   * Optional in `fn(u32)`/`fn(x: u32)` and the like
